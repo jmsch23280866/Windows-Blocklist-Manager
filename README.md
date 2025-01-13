@@ -23,7 +23,7 @@ A Windows application that helps you manage blocked applications through a user-
 
 ## 💻 Installation
 
-1. Download the latest release from the releases page
+1. Download the [latest release](https://github.com/jmsch23280866/Windows-Blocklist-Manager/releases/latest) from the releases page
 2. Run the executable as administrator
 3. The program will automatically configure necessary registry settings
 
