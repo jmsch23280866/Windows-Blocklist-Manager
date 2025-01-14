@@ -1,0 +1,17 @@
+# Steam安裝
+SteamSetup.exe
+# Steam啟動
+steam.exe
+
+# Epic Games啟動
+EpicGamesLauncher.exe
+
+# 暴雪安裝
+Battle.net-Setup.exe
+# 暴雪啟動
+Battle.net.exe
+
+# EA安裝
+OriginSetup.exe
+# EA啟動
+Origin.exe

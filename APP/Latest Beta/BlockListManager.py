@@ -14,10 +14,10 @@ LANGUAGES = {
         'title': "阻擋清單管理工具",
         'app_name_label': "應用程式名稱：",
         'example_text': "範例: Steam.exe, obs64.exe",
-        'browse_button': "瀏覽...",
-        'add_button': "新增",
-        'remove_button': "刪除選定項目",
-        'change_language': "Change Language",
+        'browse_button': "🔍 瀏覽...",
+        'add_button': "➕ 新增",
+        'remove_button': "❌ 刪除選定項目",
+        'change_language': "🌐 Change Language",
         'success_add': "已將 {} 新增到阻擋清單！",
         'success_remove': "已將 {} 移出阻擋清單！",
         'warning_exists': "{} 已經在阻擋清單中！",
@@ -26,17 +26,23 @@ LANGUAGES = {
         'error_admin': "無法新增項目，請以管理員身分運行程式！",
         'error_policy': "無法設置 DisallowRun 政策：{}",
         'file_dialog_title': "選擇要阻擋的應用程式",
-        'file_types': [("執行檔", "*.exe"), ("所有檔案", "*.*")]
+        'file_types': [("執行檔", "*.exe"), ("所有檔案", "*.*")],
+        'export_button': "💾 匯出設定",
+        'export_success': "設定已匯出至：\n{}",
+        'export_error': "匯出設定時發生錯誤：{}",
+        'export_dialog_title': "選擇匯出位置",
+        'export_file_types': [("登錄檔", "*.reg")],
+        'export_default_name': "阻擋清單設定.reg"
     },
     'en_US': {
         # 英文介面文字設定
         'title': "Block List Manager",
         'app_name_label': "Application Name:",
         'example_text': "Example: Steam.exe, obs64.exe",
-        'browse_button': "Browse...",
-        'add_button': "Add",
-        'remove_button': "Remove Selected",
-        'change_language': "中文介面",
+        'browse_button': "🔍 Browse...",
+        'add_button': "➕ Add",
+        'remove_button': "❌ Remove Selected",
+        'change_language': "🌐 中文介面",
         'success_add': "{} has been added to block list!",
         'success_remove': "{} has been removed from block list!",
         'warning_exists': "{} is already in the block list!",
@@ -45,7 +51,13 @@ LANGUAGES = {
         'error_admin': "Cannot add item, please run as administrator!",
         'error_policy': "Cannot set DisallowRun policy: {}",
         'file_dialog_title': "Select Application to Block",
-        'file_types': [("Executable", "*.exe"), ("All Files", "*.*")]
+        'file_types': [("Executable", "*.exe"), ("All Files", "*.*")],
+        'export_button': "💾 Export Settings",
+        'export_success': "Settings exported to:\n{}",
+        'export_error': "Error exporting settings: {}",
+        'export_dialog_title': "Choose Export Location",
+        'export_file_types': [("Registry File", "*.reg")],
+        'export_default_name': "BlockListSettings.reg"
     }
 }
 
@@ -150,6 +162,7 @@ class BlockListManager:
         self.add_button.config(text=lang['add_button'])
         self.remove_button.config(text=lang['remove_button'])
         self.language_button.config(text=lang['change_language'])
+        self.export_button.config(text=lang['export_button'])
 
     def update_listbox(self):
         """
@@ -367,6 +380,64 @@ class BlockListManager:
         except PermissionError:
             messagebox.showerror("錯誤", LANGUAGES[self.current_language]['error_admin'])
 
+    def export_settings(self):
+        """
+        將當前的阻擋設定匯出為 .reg 檔案
+        讓使用者選擇儲存位置和檔案名稱
+        """
+        try:
+            # 取得所有阻擋清單項目
+            blocked_apps = []
+            reg_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, DISALLOW_RUN_KEY, 0, winreg.KEY_READ)
+            i = 0
+            while True:
+                try:
+                    _, value_data, _ = winreg.EnumValue(reg_key, i)
+                    blocked_apps.append(value_data)
+                    i += 1
+                except OSError:
+                    break
+            winreg.CloseKey(reg_key)
+
+            # 讓使用者選擇儲存位置
+            file_path = filedialog.asksaveasfilename(
+                title=LANGUAGES[self.current_language]['export_dialog_title'],
+                filetypes=LANGUAGES[self.current_language]['export_file_types'],
+                defaultextension=".reg",
+                initialfile=LANGUAGES[self.current_language]['export_default_name']
+            )
+            
+            if not file_path:  # 使用者取消選擇
+                return
+
+            # 建立 .reg 檔案內容
+            reg_content = 'Windows Registry Editor Version 5.00\n\n'
+            reg_content += '[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies]\n\n'
+            reg_content += '[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer]\n'
+            reg_content += '"DisallowRun"=dword:00000001\n\n'
+            reg_content += '[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\DisallowRun]\n'
+            
+            # 加入阻擋清單項目
+            for i, app in enumerate(blocked_apps, 1):
+                reg_content += f'"{i}"="{app}"\n'
+
+            # 儲存檔案
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(reg_content)
+
+            # 顯示成功訊息
+            messagebox.showinfo(
+                "成功" if self.current_language == 'zh_TW' else "Success",
+                LANGUAGES[self.current_language]['export_success'].format(file_path)
+            )
+
+        except Exception as e:
+            # 顯示錯誤訊息
+            messagebox.showerror(
+                "錯誤" if self.current_language == 'zh_TW' else "Error",
+                LANGUAGES[self.current_language]['export_error'].format(str(e))
+            )
+
     def init_gui(self):
         """
         初始化圖形使用者介面
@@ -379,23 +450,39 @@ class BlockListManager:
         self.root.title(lang['title'])
         
         # 設置最小視窗大小
-        self.root.minsize(400, 300)
+        self.root.minsize(500, 400)  # 加大最小視窗大小
+        
+        # 設定所有文字的字體
+        button_font = ('Arial', 12)  # 按鈕字體
+        label_font = ('Arial', 12)   # 標籤字體
+        entry_font = ('Arial', 12)   # 輸入框字體
+        list_font = ('Arial', 12)    # 清單框字體
+        hint_font = ('Arial', 10)    # 提示文字字體
         
         # 配置根視窗的行列權重
-        self.root.grid_rowconfigure(3, weight=1)  # listbox 所在行
+        self.root.grid_rowconfigure(3, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
 
         # 語言切換按鈕
-        self.language_button = tk.Button(self.root, text=lang['change_language'], 
-                                       command=self.change_language)
-        self.language_button.grid(row=0, pady=5)
+        self.language_button = tk.Button(
+            self.root, 
+            text=lang['change_language'],
+            font=button_font,
+            command=self.change_language
+        )
+        self.language_button.grid(row=0, pady=10)  # 增加間距
 
         # 頂部框架
         frame_top = tk.Frame(self.root)
         frame_top.grid(row=1, pady=10, sticky='ew')
-        frame_top.grid_columnconfigure(1, weight=1)  # entry_frame 所在列
+        frame_top.grid_columnconfigure(1, weight=1)
 
-        self.entry_label = tk.Label(frame_top, text=lang['app_name_label'])
+        # 應用程式名稱標籤
+        self.entry_label = tk.Label(
+            frame_top,
+            text=lang['app_name_label'],
+            font=label_font
+        )
         self.entry_label.grid(row=0, column=0, padx=5)
 
         # 輸入框架
@@ -403,30 +490,66 @@ class BlockListManager:
         entry_frame.grid(row=0, column=1, padx=5, sticky='ew')
         entry_frame.grid_columnconfigure(0, weight=1)
 
-        self.entry = tk.Entry(entry_frame)
+        # 輸入框
+        self.entry = tk.Entry(
+            entry_frame,
+            font=entry_font
+        )
         self.entry.grid(row=0, column=0, sticky='ew')
         self.entry.bind('<Return>', lambda event: self.add_to_block_list())
 
-        self.example_label = tk.Label(entry_frame, text=lang['example_text'],
-                                    font=("新細明體", 8), fg="gray")
+        # 範例提示文字
+        self.example_label = tk.Label(
+            entry_frame,
+            text=lang['example_text'],
+            font=hint_font,
+            fg="gray"
+        )
         self.example_label.grid(row=1, column=0)
 
-        self.browse_button = tk.Button(frame_top, text=lang['browse_button'],
-                                     command=self.browse_file)
-        self.browse_button.grid(row=0, column=2, padx=2)
+        # 瀏覽按鈕
+        self.browse_button = tk.Button(
+            frame_top, 
+            text=lang['browse_button'],
+            font=button_font,
+            command=self.browse_file
+        )
+        self.browse_button.grid(row=0, column=2, padx=5)
 
-        self.add_button = tk.Button(frame_top, text=lang['add_button'],
-                                  command=self.add_to_block_list)
+        # 新增按鈕
+        self.add_button = tk.Button(
+            frame_top, 
+            text=lang['add_button'],
+            font=button_font,
+            command=self.add_to_block_list
+        )
         self.add_button.grid(row=0, column=3, padx=5)
 
+        # 建立按鈕框架來容納刪除和匯出按鈕
+        button_frame = tk.Frame(self.root)
+        button_frame.grid(row=2, pady=10)  # 增加間距
+
         # 刪除按鈕
-        self.remove_button = tk.Button(self.root, text=lang['remove_button'],
-                                     command=self.remove_from_block_list)
-        self.remove_button.grid(row=2, pady=5)
+        self.remove_button = tk.Button(
+            button_frame,
+            text=LANGUAGES[self.current_language]['remove_button'],
+            font=button_font,
+            command=self.remove_from_block_list
+        )
+        self.remove_button.grid(row=0, column=0, padx=(0, 15))  # 增加按鈕間距
+
+        # 匯出按鈕
+        self.export_button = tk.Button(
+            button_frame,
+            text=LANGUAGES[self.current_language]['export_button'],
+            font=button_font,
+            command=self.export_settings
+        )
+        self.export_button.grid(row=0, column=1)
 
         # 建立框架來容納清單和滾動軸
         list_frame = tk.Frame(self.root)
-        list_frame.grid(row=3, sticky='nsew', padx=10)
+        list_frame.grid(row=3, sticky='nsew', padx=10, pady=5)
         list_frame.grid_rowconfigure(0, weight=1)
         list_frame.grid_columnconfigure(0, weight=1)
 
@@ -435,8 +558,12 @@ class BlockListManager:
         scrollbar.grid(row=0, column=1, sticky='ns')
 
         # 建立清單框並連接滾動軸
-        self.listbox = tk.Listbox(list_frame, selectmode=tk.EXTENDED,
-                                 yscrollcommand=scrollbar.set)
+        self.listbox = tk.Listbox(
+            list_frame,
+            selectmode=tk.EXTENDED,
+            yscrollcommand=scrollbar.set,
+            font=list_font
+        )
         self.listbox.grid(row=0, column=0, sticky='nsew')
         scrollbar.config(command=self.listbox.yview)
         
