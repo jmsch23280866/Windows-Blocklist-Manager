@@ -1,3 +1,0 @@
-於當前資料夾開啟CMD並執行
-pyinstaller --onefile --noconsole BlockListManager.py
-於dist資料夾可看到製作的程式
